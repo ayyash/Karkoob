@@ -1,52 +1,10 @@
-﻿var cssSheet, $scontainer, $pageurl, $txCss, $cssresult, $rtlresult, $txrtlCss;
-$(function () {
-	$scontainer = $("#stylecontainer");
-	$pageurl = $(".pageurl");
-	$txCss = $("#txCss");
-	$txrtlCss = $("#txrtlCss");
+﻿
+function rtlMirror(text) {
+	// put text in a stylesheet inside an iframe of its own to process
+	var $sheet = $("<style rel='stylesheet' type='text/css' />").text(text).appendTo("body").prop("disabled",true);
+	var sheet = $sheet.get(0).sheet;
 
-	$cssresult = $("#cssresult");
-	$rtlresult = $("#rtlresult");
-
-	$scontainer.load(function (e) {
-		// now get the compiled css, and arabize it
-
-		var doc = this.contentDocument;
-		
-
-		cssSheet = doc.styleSheets[doc.styleSheets.length - 1];
-		
-
-		// TODO: allow for multiple css, this is used because LESS CSS generates a new one at the bottom of the stack, and this suits my needs
-
-		var csstext = cssSheet.ownerNode.textContent;
-		csstext = csstext.replace(/\"/gi, "\'");
-		// TODO: add replace(/"http://locahost/something"/gi, "") to remove absolute file references
-
-		$txCss.text(csstext);
-		$cssresult.slideDown();
-
-	});
-
-	$("#generatecss").click(function (e) {
-
-		// add the src to iframe then load
-		$scontainer.attr("src", $pageurl.val());
-	});
-	$("#generatertl").click(function (e) {
-		// now mirror and add to second css textfield
-		$txrtlCss.text(rtlAltaf(cssSheet));
-		$rtlresult.slideDown();
-
-	});
-});
-
-
-
-function rtlAltaf(sheet) {
-	// this way is better than anything i tried, i just append the new overriding rules to the exisint ones, mirring left to right and resetting lefts
 	var str = "";
-
 	for (var i = 0; i < sheet.cssRules.length; i++) {
 
 		var rule = sheet.cssRules[i];
@@ -54,12 +12,20 @@ function rtlAltaf(sheet) {
 		switch (rule.type) {
 			case 1:
 
-				str += rtlMirror(rule);
+				str += rtlMirrorRule(rule) + "\n";
 				break;
 			case 4: // media
 				var mediastr = "";
-				for (var j = 0; j < rule.cssRules.length; j++) {
-					mediastr += rtlMirror(rule.cssRules[j]);
+				// if rtl just add to str
+				if (rule.media.mediaText == "rtl") {
+					for (var j = 0; j < rule.cssRules.length; j++) {
+						str += rule.cssRules[j].cssText + "\n";
+					}
+
+				} else {
+					for (var j = 0; j < rule.cssRules.length; j++) {
+						mediastr += "\n" + rtlMirrorRule(rule.cssRules[j]) + "\n";
+					}
 				}
 				if (mediastr != "") {
 					str += "\n@media " + rule.media.mediaText + " { ";
@@ -68,6 +34,9 @@ function rtlAltaf(sheet) {
 				}
 
 				break;
+			case 5: // fontface
+				str += "\n" + rule.cssText + "\n";
+				break;
 			default:
 				continue;
 		}
@@ -75,91 +44,83 @@ function rtlAltaf(sheet) {
 
 
 	}
-
-
+	// lets remove the stylehseet
+	$sheet.remove();
 	return str;
+
 }
 
-function rtlMirror(rule) {
+var compactStyle = ["padding", "margin", "border-width", "border-style", "border-color"];
+
+function rtlMirrorRule(rule) {
+
+	// TODO: check 1:
+	// 1. right and left in cssText
+	// 2. compact forms (or simply always use exact forms, though that would make the css file bigger) [padding margin border]
+	// 3. content should be encapsulated with quotes
 
 	// check the existence of right or left in css text
+	var cssText = rule.cssText;
 
-	if (rule.cssText.indexOf("left") < 0 && rule.cssText.indexOf("right") < 0 && rule.cssText.indexOf("background-position") < 0) return "";
+	// if "content" is part of definition, encapsulate
+	if (cssText.indexOf("content") > -1) {
+		cssText = cssText.replace(/\\\\/gi, "\\");
+	}
+
+	//if (cssText.indexOf("left") < 0 && cssText.indexOf("right") < 0) return cssText.replace(/(::)/gi, ":");
+
+	// reconstruct cssText, start from selectorText
+	var str = cssText.substring(rule.selectorText.length)
+					.replace(/left/gi, "tempr").replace(/right/gi, "left").replace(/tempr/gi, "right");
+
+	str = "\n" + rule.selectorText.replace(/(::)/gi, ":") + str + " \n";
+
+
+	var rtl = "";
+
+	for (var i = 0; i < compactStyle.length; i++) {
+		if (cssText.indexOf(compactStyle[i] + ":") > -1) {
+			// overwriters
+			rtl += rtlCompact(rule, compactStyle[i]);
+		}
+	}
+
+	// remove :: from selector text, this is rtl compact overwrites
+	if (rtl != "") rtl = "\n" + rule.selectorText.replace(/(::)/gi, ":") + "{" + rtl + " } \n";
+
+
+	return str + rtl;
+}
+
+function rtlCompact(rule, ow) {
 
 	var str = "";
+	// just overright left and right, this is to take care of compact forms which have right and left always
 
-	for (var j = 0; j < rule.style.length; j++) {
+	// get all padding-left, margin-left, border-left-width, border-left-style, border-left-color
+	// if border, insert left in the middle
+	var propName = ow + "-{0}";
+	if (ow == "border-style") propName = "border-{0}-style";
+	if (ow == "border-width") propName = "border-{0}-width";
+	if (ow == "border-color") propName = "border-{0}-color";
 
-		var propName = rule.style[j];
-		var propPro = (rule.style.getPropertyPriority(propName) != "" ? "!important" : "");
+	var leftPropName = propName.replace("{0}", "left"),
+		rightPropName = propName.replace("{0}", "right"),
+		propPro = (rule.style.getPropertyPriority(leftPropName) != "" ? "!important" : ""), // i think if one is important both are
+		leftValue = rule.style.getPropertyValue(leftPropName),
+		rightValue = rule.style.getPropertyValue(rightPropName);
 
-		// if margin or padding, margin-left: 12px => margin-right: 12px; margin-left: 0;
-		if (propName.indexOf("left") > -1) {
+	if (leftValue == rightValue) return "";
 
-			// check right, if exists, swap, else zero
-			var rPropName = propName.replace("left", "right"),
-								value = rule.style.getPropertyValue(propName),
-								rvalue = rule.style.getPropertyValue(rPropName);
+	//right: left value and left priority
+	str += rightPropName + ":" + leftValue + propPro + ";\n";
 
-			if (value == rvalue) continue;
 
-			//newStyle.style.push({ "name": rPropName, "value": value + propPro });
-			str += rPropName + ":" + value + propPro + ";\n";
+	// left: right value and right priority if it exists
+	str += leftPropName + ":" + rightValue + propPro + ";\n";
 
-			if (!rvalue) {
-				//reset
-				rvalue = "0";
-				// switch case of width, style and color
-				if (propName.indexOf("color") > -1 || propName.indexOf("style") > -1) {
-					rvalue = "none";
-				} else if (propName === "left") {
-					rvalue = "auto";
-				}
-
-			}
-			//newStyle.style.push({ "name": propName, "value": rvalue + propPro });
-			str += propName + ":" + rvalue + propPro + ";\n";
-		}
-		// if right exists, check left, if defined, move on
-		if (propName.indexOf("right") > -1) {
-			var lPropName = propName.replace("right", "left"),
-								value = rule.style.getPropertyValue(propName),
-								lvalue = "0";
-			if (rule.style.getPropertyValue(lPropName) == null || rule.style.getPropertyValue(lPropName) === "") {
-				//newStyle.style.push({ "name": lPropName, "value": value + propPro });
-				str += lPropName + ":" + value + propPro + ";\n";
-
-				// switch case of width, style and color
-				if (propName.indexOf("color") > -1 || propName.indexOf("style") > -1) {
-					lvalue = "none";
-				} else if (propName === "right") {
-					lvalue = "auto";
-				}
-				//newStyle.style.push({ "name": propName, "value": lvalue + propPro });
-				str += propName + ":" + lvalue + propPro + ";\n";
-			}
-		}
-		// background position special case
-		if (propName == "background-position-x") {
-			// experimental, left over 100%, dont fix pixels
-			var pValue = rule.style.getPropertyValue("background-position-x");
-			if (pValue.indexOf("%") > -1) {
-				str += "background-position:" + (100 - parseInt(pValue)) + "% " + rule.style.getPropertyValue("background-position-y");
-			}
-		}
-		// now check values (float basically)
-		var pValue = rule.style.getPropertyValue(propName);
-		if (pValue.indexOf("left") > -1 || pValue.indexOf("right") > -1) {
-
-			//newStyle.style.push({ "name": propName, "value": (rule.style.getPropertyValue(propName)).replace("left", "tempr").replace("right", "left").replace("tempr", "right") + propPro });
-			str += propName + ":" + pValue.replace("left", "tempr").replace("right", "left").replace("tempr", "right") + propPro + ";\n";
-		}
-
-	}
-	if (str == "") return "";
 
 	// remove :: from selector text
 
-	return "\n" + rule.selectorText.replace(/(::)/gi, ":") + " {" + str + " } \n";
+	return str;
 }
-		

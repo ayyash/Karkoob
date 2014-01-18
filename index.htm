@@ -1,36 +1,77 @@
 ﻿<!DOCTYPE html>
-
-<html >
+<html>
 <head>
-	<script type="text/javascript" src="http://ajax.aspnetcdn.com/ajax/jQuery/jquery-1.7.1.min.js"></script>
+	<script type="text/javascript" src="//ajax.googleapis.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 	<script type="text/javascript" src="mirror.js"></script>
-    <title>Karkoob</title>
+	<title>Karkoob</title>
+	<script>
+		var cssSheet, $scontainer, $pageurl, $txCss, $cssresult, $rtlresult, $txrtlCss;
+		$(function () {
+			$scontainer = $("#stylecontainer");
+			//$pageurl = $(".pageurl");
+			$txCss = $("#txCss");
+			$txrtlCss = $("#txrtlCss");
+
+			$cssresult = $("#cssresult");
+			$rtlresult = $("#rtlresult").hide();
+
+			$("#generateRtl").click(function (e) {
+				// now mirror and add to second css textfield
+				$txrtlCss.text(rtlMirror($txCss.val().replace(/\\/gi, "\\\\")));
+				$rtlresult.fadeIn();
+
+			});
+		});
+
+	</script>
+	<style type="text/css">
+		body {
+			margin: 0;
+			font: 14px normal Segoe UI, Droid Sans, Avenir Book, Sans-serif;
+		}
+
+		.main {
+			width: 900px;
+			margin: 0 auto;
+			box-sizing: border-box;
+		}
+		.btnrev {
+			color: #3300cc;
+			padding: 10px 15px;
+			position: relative;
+			display: inline-block;
+			background-color: #f2f2f2;
+			line-height: 1;
+			margin-right: 5px;
+			cursor: pointer;
+			border: 0;
+			-webkit-appearance: none;
+		}
+		.w100 {
+			width: 100%;
+		}
+		.h3 {
+			min-height: 200px;
+		}
+			
+	</style>
 </head>
 <body>
-
-<h1>Karkoob Minifier + Arabizer</h1>
-TODO: style this page
-<iframe id="stylecontainer" width="1" height="1"></iframe>
-<section class="overview">
-	<fieldset class="p100">
-		<legend>Add url of page that contains all styles</legend>
-		<div class="stack stacklist">
-			<input type="text" class="w5 pageurl" value="empty.htm" /> <span class="a btnrev" id="generatecss">Generate CSS</span>
-
-		</div>
-	</fieldset>
 	
-</section>
-<section class="hidden" id="cssresult">
-	<h4>Generated CSS</h4>
-	<textarea class="w100 h3" id="txCss"></textarea>
-	<div class="breath">
-		<span class="a btnrev" id="generatertl">Generate RTL CSS</span>
+	<div class="main">
+		<h1>Karkoob  Arabizer</h1>
+		<section id="cssresult">
+			<h4>Give me the css content</h4>
+			<textarea class="w100 h3" id="txCss"></textarea>
+			<div class="breath">
+				<span class="a btnrev" id="generateRtl">Generate RTL CSS</span>
+			</div>
+
+		</section>
+		<section id="rtlresult">
+			<h4>I'll mirror and give back:</h4>
+			<textarea class="w100 h3" id="txrtlCss"></textarea>
+		</section>
 	</div>
-</section>
-<section class="hidden" id="rtlresult">
-<h4>Generated RTL CSS</h4>
-	<textarea class="w100 h3" id="txrtlCss"></textarea>
-</section>
 </body>
 </html>
