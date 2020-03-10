@@ -16,7 +16,7 @@ Anything found between the RTL BEGIN and RTL END is ignored:
 /* RTL END */
 ```
 
-**The output** The file generated is a whole css replacement, not a patch file. From years of experience, generating a seperate file for rtl is much less bugy and more maintainable than adding a patch file. Keep that in mind. 
+**The output** The file generated is a whole css replacement, not a patch file. After years of experience, generating a seperate file for rtl is much less buggy and more maintainable than adding a patch file. Keep that in mind. 
 
 #### Notes:
 The file `mirror.js` is legacy, parses cssText directly, which was a very buggy process, use `rtl.js`
